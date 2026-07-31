@@ -1,0 +1,119 @@
+================================================================================
+PROJECT: Adaptive Approximate Multiplier Architecture for Energy-Efficient AI 
+         Edge Accelerators
+TYPE: Hardware/Software Co-Design & Automated Verification
+================================================================================
+
+1. PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+This project is a highly specialized hardware accelerator designed specifically 
+for Edge AI applications where power and energy efficiency are critical. Unlike 
+standard AI accelerators that compute everything perfectly, this architecture 
+leverages "Approximate Computing." 
+
+By utilizing a dual-mode Processing Element (PE) design, the hardware can 
+dynamically trade off mathematical accuracy for massive power savings depending 
+on the robustness of the neural network layer being processed. Software acts as 
+the "Brains" (compiling, quantizing, and formatting data), while Hardware acts 
+as the adaptable "Muscle."
+
+2. THE HARDWARE ARCHITECTURE (SystemVerilog RTL)
+--------------------------------------------------------------------------------
+* The Grid: An 8x8 2D physical grid of Dual-Mode Processing Elements (PEs).
+* Adaptive Execution (The Core Feature): 
+    - **Mode 1 (Exact Mode):** Performs standard, full-precision INT8 
+      multiplication. Used for critical layers where accuracy cannot be 
+      compromised. Consumes standard power.
+    - **Mode 0 (Approximate Mode):** Engages the approximate multiplier logic 
+      (3-LSB bit truncation on both operands before multiplying). Introduces 
+      computational errors but heavily reduces dynamic power consumption and 
+      switching activity. Ideal for highly error-resilient AI tasks. Because 
+      each output accumulates only 8 truncated partial products, the error 
+      rate in this mode is substantial, not merely "minor" -- verify against 
+      the Golden Reference before relying on it for accuracy-sensitive work.
+* The Data Limits: The hardware natively processes 8-bit signed integers (INT8) 
+  ranging from -128 to +127.
+* The Accumulators: To prevent massive bit-growth and overflow, the running 
+  totals inside each PE use exact 32-bit registers, regardless of the mode.
+* The Flow (Systolic): Matrix A enters from the left, Matrix B from the top, and 
+  the Mode Control signal dictates the operation. Data flows diagonally across 
+  the grid in staggered rhythmic waves.
+
+3. THE SOFTWARE COMPILER (Python)
+--------------------------------------------------------------------------------
+The Python script prepares raw, infinitely sized user matrices for the strict 
+8x8 hardware limitations and dictates the power-saving strategy.
+* Quantization: Calculates a Scale Factor, divides, and rounds floating-point 
+  numbers to safely fit the INT8 range.
+* Mode Mapping: Sets the `HARDWARE_MODE` bit (1 = Exact, 0 = Approximate) for 
+  the upcoming hardware batch.
+* Tiling & Padding: Zero-pads each matrix up to a multiple of 8, slices it 
+  into 8x8 tiles in (output-row, output-col, inner-k) order, and stacks every 
+  tile into the same `.hex` files for continuous memory reading. `tpu_driver.py` 
+  handles any matrix size this way -- a single 8x8 tile or many -- and stitches 
+  the per-tile partial sums back together in software when reading results back.
+
+4. SIMULATION & EXECUTION COMMANDS
+--------------------------------------------------------------------------------
+The project utilizes Icarus Verilog (`iverilog`) for SystemVerilog compilation 
+and simulation. The environment is configured for IEEE 1800-2012 standards.
+
+To compile the design from the root directory:
+> iverilog -g2012 -o systolic_sim.vvp src/processing_element.sv src/systolic_array_8x8.sv tb/tb_systolic_array.sv
+
+To run the compiled simulation executable:
+> vvp systolic_sim.vvp
+
+5. THE AUTOMATED "PUSH-BUTTON" PIPELINE
+--------------------------------------------------------------------------------
+This project features an elite batch-processing verification environment. 
+
+STEP 1 (Pack): Python quantizes matrices, assigns Mode 0/1 states, calculates 
+the "Golden Reference" exact answer, and packs all tiles into `matrix_a.hex` 
+and `matrix_b.hex` inside the `data/` folder.
+STEP 2 (Launch): Python silently executes the `iverilog` and `vvp` commands via 
+the `subprocess` library.
+STEP 3 (Execute): The Verilog Testbench boots up, loads the `.hex` files into a 
+giant simulated memory array, and continuously pumps tiles through the systolic 
+grid using the requested power mode.
+STEP 4 (Verify): Python reads the stacked answers from `accumulator_output.txt`, 
+stitches the tiles back together (summing partial products across the inner-k 
+dimension), and compares the hardware results against the Golden Reference 
+(`expected_out.txt`) to evaluate both accuracy and the error-rate introduced by 
+Approximate Mode.
+
+6. PROJECT DIRECTORY STRUCTURE
+--------------------------------------------------------------------------------
+Systolic_Array_Accelerator/
+│
+├── docs/                        # Project documentation
+│   └── ABOUT.txt                # This system architecture summary
+│
+├── src/                         # Hardware RTL (SystemVerilog Design Files)
+│   ├── processing_element.sv    # The dual-mode (Exact/Approx) INT8 MAC unit
+│   └── systolic_array_8x8.sv    # Top-level module wiring 64 PEs together
+│
+├── tb/                          # Hardware Verification (Testbenches)
+│   └── tb_systolic_array.sv     # Handles file I/O, memory loading, and batching
+│
+├── software/                    # The Python "Compiler" and Automation
+│   └── tpu_driver.py            # Quantizes, tiles, dictates mode, runs subprocess, verifies
+│
+└── data/                        # The Data Bridge (generated at runtime; ignored in Git)
+    ├── config.txt               # Tells the TB how many elements/tiles and which mode to run
+    ├── matrix_a.hex             # Left inputs, tiled (Generated by Python)
+    ├── matrix_b.hex             # Top inputs, tiled (Generated by Python)
+    ├── expected_out.txt         # The Golden Reference (Generated by Python)
+    └── accumulator_output.txt   # The raw per-tile answers (Written by Verilog)
+
+7. STEPS FOR RUNNING THIS PROJECT
+--------------------------------------------------------------------------------
+# change the values of ROWS_A,ROWS_B,COL_A,COL_B according to youself but just make sure that 
+  the values of ROWS_A and COLB should be equal.
+# change the HARDWARE_MODE to 0 or 1 in python file
+# install the numpy library and go to the software folder then execute " python3 tpu_driver.py "
+# and also make sure to delete " systolic_sim.vvp " file after running the project and before running again
+
+================================================================================
+END OF FILE
+================================================================================

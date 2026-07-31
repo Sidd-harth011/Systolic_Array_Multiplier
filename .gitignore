@@ -1,0 +1,42 @@
+gitignore_content = """# ==========================================
+# Systolic Array Accelerator .gitignore
+# ==========================================
+
+# 1. Hardware Simulation (Icarus Verilog / GTKWave)
+*.vvp
+*.vcd
+*.fst
+
+# 2. Software Compiler (Python)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# 3. Auto-Generated Data Bridge (Test Vectors & Output)
+# Ignore the generated data files so they don't bloat the repo
+data/*.hex
+data/*.txt
+data/*.mem
+
+# 4. Xilinx Vivado (If used for synthesis later)
+*.jou
+*.log
+*.pb
+*.wdb
+*.str
+.Xil/
+*.xpr
+*.sim/
+*.cache/
+*.hw/
+*.runs/
+*.ip_user_files/
+*.gen/
+
+# 5. OS Generated Files
+.DS_Store
+Thumbs.db
+"""
