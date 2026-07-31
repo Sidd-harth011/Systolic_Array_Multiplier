@@ -15,13 +15,7 @@ __pycache__/
 venv/
 env/
 
-# 3. Auto-Generated Data Bridge (Test Vectors & Output)
-# Ignore the generated data files so they don't bloat the repo
-data/*.hex
-data/*.txt
-data/*.mem
-
-# 4. Xilinx Vivado (If used for synthesis later)
+# 3. Xilinx Vivado (If used for synthesis later)
 *.jou
 *.log
 *.pb
@@ -36,7 +30,7 @@ data/*.mem
 *.ip_user_files/
 *.gen/
 
-# 5. OS Generated Files
+# 4. OS Generated Files
 .DS_Store
 Thumbs.db
 """
